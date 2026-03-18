@@ -237,78 +237,97 @@ today.innerHTML=arr.map(x=>`<span class="ball hot">${x.num}</span>`).join("");
 function showHitRate(){
 
 if(records.length < 10){
-document.getElementById("hitRate").innerHTML = "資料不足";
+hitRate.innerHTML="資料不足";
 return;
 }
 
-let maxCheck = 20; // 往回看20期
-let results = {};
+let results={};
 
-/* 🔥 建立間隔容器 */
-for(let gap=2; gap<=10; gap++){
-results[gap] = {};
+/* 建立間隔 */
+for(let gap=2;gap<=10;gap++){
+results[gap]={};
 }
 
-/* 🔥 從今天往回抓 */
-for(let i=records.length-1; i>=0; i--){
+/* 計算20期 */
+for(let i=records.length-1;i>=0 && i>records.length-21;i--){
 
-let base = records[i];
+let base=records[i];
 
-for(let gap=2; gap<=10; gap++){
+for(let gap=2;gap<=10;gap++){
 
-let targetIndex = i - gap;
+let targetIndex=i-gap;
+if(targetIndex<0) continue;
 
-if(targetIndex < 0) continue;
+let target=records[targetIndex];
 
-let target = records[targetIndex];
-
-/* 比對 */
-let same = base.nums.filter(n=>target.nums.includes(n));
+let same=base.nums.filter(n=>target.nums.includes(n));
 
 same.forEach(n=>{
-if(!results[gap][n]) results[gap][n] = 0;
+if(!results[gap][n]) results[gap][n]=0;
 results[gap][n]++;
 });
 
 }
 }
 
-/* 🔥 整理輸出 */
-let html = "";
+/* 🔥 找最強間隔 */
+let bestGap=null;
+let bestScore=0;
 
-for(let gap=2; gap<=10; gap++){
+/* 畫面 */
+let html="";
 
-let nums = results[gap];
+for(let gap=2;gap<=10;gap++){
 
-/* 只取「出現>=2次」 */
-let strong = Object.entries(nums)
-.filter(([n,count])=>count >= 2)
+let strong=Object.entries(results[gap])
+.filter(([n,c])=>c>=2)
 .sort((a,b)=>b[1]-a[1]);
 
-if(strong.length === 0) continue;
+if(!strong.length) continue;
 
-/* 顯示 */
-html += `<div class="resultCard">`;
+/* 計算總分 */
+let total=strong.reduce((sum,x)=>sum+x[1],0);
 
+if(total > bestScore){
+bestScore = total;
+bestGap = gap;
+}
+
+html+=`<div class="resultCard">`;
+
+/* 顯示號碼+次數 */
 strong.forEach(([n,count])=>{
-html += `<span class="ball hit">${n}</span>`;
+html+=`<span class="ball hit">${n}(${count})</span>`;
 });
 
-html += `
-<div class="resultLabel">
-間隔 ${gap} 期（重複出現）
+html+=`<div class="resultLabel">間隔 ${gap} 期（重複出現）</div></div>`;
+}
+
+/* 🔥 推薦區 */
+if(bestGap){
+
+let bestNums = Object.entries(results[bestGap])
+.filter(([n,c])=>c>=2)
+.sort((a,b)=>b[1]-a[1])
+.slice(0,5);
+
+html = `
+<div class="resultCard" style="border-left:4px solid #ff3b30;">
+<div class="resultLabel">🔥 推薦間隔：${bestGap}期</div>
+<div>
+${bestNums.map(x=>`<span class="ball hot">${x[0]}</span>`).join("")}
 </div>
 </div>
-`;
+` + html;
 
 }
 
 /* 沒資料 */
-if(html===""){
-html = "<div class='resultLabel'>20期內無穩定規律</div>";
+if(!html){
+html="<div class='resultLabel'>20期內無穩定規律</div>";
 }
 
-document.getElementById("hitRate").innerHTML = html;
+hitRate.innerHTML=html;
 
 }
 
