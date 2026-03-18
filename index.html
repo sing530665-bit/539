@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🎯 539智慧預測系統</title>
+<title>🎯 539家庭分析系統</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -15,20 +15,33 @@ body{font-family:"Microsoft JhengHei";margin:0;background:#fff5f5;}
 .card{background:white;border-radius:12px;padding:12px;margin-bottom:10px;}
 
 .ball{
-display:inline-block;width:42px;height:42px;line-height:42px;
-border-radius:50%;margin:6px;text-align:center;font-weight:bold;
-background:#ffd54f;font-size:16px;
+display:inline-block;width:36px;height:36px;line-height:36px;
+border-radius:50%;margin:4px;text-align:center;font-weight:bold;
+background:#ffd54f;
 }
 
+.ball.hit{background:#42a5f5;color:white;}
 .ball.hot{background:#ff5252;color:white;}
 
-.resultLabel{font-size:14px;color:#555;margin-top:6px;}
+.resultLabel{font-size:13px;color:#555;margin-top:4px;}
+.btn{padding:6px 12px;border:none;border-radius:10px;background:#ff9800;color:white;}
+
+#history{max-height:320px;overflow:auto;}
+
+/* 管理員 */
+.fab{position:fixed;bottom:20px;left:20px;z-index:999;}
+#adminBtn{width:50px;height:50px;border-radius:50%;border:none;background:#333;color:white;font-size:20px;}
+.fab:hover #adminBtn{transform:scale(1.15);}
+
+/* TOP */
+.fab-right{position:fixed;bottom:20px;right:20px;z-index:999;}
+#topBtn{width:50px;height:50px;border-radius:50%;border:none;background:#ff3b30;color:white;display:none;}
 </style>
 </head>
 
 <body>
 
-<div class="header">🎯 539智慧預測系統</div>
+<div class="header">🎯 539家庭分析系統</div>
 
 <div class="container">
 
@@ -38,19 +51,40 @@ background:#ffd54f;font-size:16px;
 </div>
 
 <div class="card">
-<h3>🔥 AI預測（今日重點）</h3>
+<h3>🔥 AI預測</h3>
 <div id="predict"></div>
 </div>
 
+<div class="card">
+<h3>📜 歷史開獎</h3>
+<button class="btn" onclick="showHistory(20)">20期</button>
+<button class="btn" onclick="showHistory(9999)">全部</button>
+<div id="history"></div>
+</div>
+
+</div>
+
+<!-- 管理 -->
+<div class="fab">
+<button id="adminBtn" onclick="location.href='admin.html'">⚙</button>
+</div>
+
+<!-- TOP -->
+<div class="fab-right">
+<button id="topBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">⬆</button>
 </div>
 
 <script>
 
-/* Firebase */
+/* Firebase（你的原本） */
 const firebaseConfig = {
-  apiKey: "你的KEY",
-  authDomain: "xxx.firebaseapp.com",
-  databaseURL: "你的DB網址",
+  apiKey: "AIzaSyClKglHQojG1xfyrwVn5VONgHg3YJypOQo",
+  authDomain: "project-6840445528125426070.firebaseapp.com",
+  databaseURL: "https://project-6840445528125426070-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "project-6840445528125426070",
+  storageBucket: "project-6840445528125426070.appspot.com",
+  messagingSenderId: "917388449245",
+  appId: "1:917388449245:web:f63938f3b35d2a4a9d1234"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -77,6 +111,7 @@ return new Date(1911+pa[0],pa[1]-1,pa[2]) -
 });
 
 showLatest();
+showHistory(20);
 predict();
 
 });
@@ -84,72 +119,59 @@ predict();
 /* 最新 */
 function showLatest(){
 let d=records[records.length-1];
-latest.innerHTML = `
-${d.date}<br>
+latest.innerHTML = d.date+"<br>"+d.nums.map(n=>`<span class="ball">${n}</span>`).join("");
+}
+
+/* 歷史 */
+function showHistory(limit){
+let list=records.slice(-limit).reverse();
+history.innerHTML=list.map(d=>`
+<div>
+<div class="resultLabel">${d.date}</div>
 ${d.nums.map(n=>`<span class="ball">${n}</span>`).join("")}
-`;
+</div>
+`).join("");
 }
 
 /* 🔥 AI預測 */
 function predict(){
 
 let score={};
-
-/* 初始化 */
 for(let i=1;i<=39;i++) score[i]=0;
 
-/* ① 最近10期（權重） */
+/* 最近10期 */
 let recent = records.slice(-10);
-
 recent.forEach((d,i)=>{
 d.nums.forEach(n=>{
-score[n] += 10 - i; // 越近分數越高
+score[n] += 10 - i;
 });
 });
 
-/* ② 連續出現加權 */
+/* 連續 */
 for(let i=records.length-1;i>records.length-6;i--){
-
 let now = records[i].nums;
 let prev = records[i-1]?.nums || [];
-
 now.forEach(n=>{
 if(prev.includes(n)){
-score[n] += 8; // 連續加權
+score[n] += 8;
 }
 });
-
 }
-
-/* ③ 共現加權 */
-let last = records[records.length-1].nums;
-
-records.slice(-10).forEach(d=>{
-let same = d.nums.filter(n=>last.includes(n));
-if(same.length>=2){
-same.forEach(n=>score[n]+=5);
-}
-});
 
 /* 排序 */
 let result = Object.entries(score)
 .map(([n,s])=>({num:+n,score:s}))
-.sort((a,b)=>b.score-a.score);
-
-/* 取前4顆 */
-let top = result.slice(0,4);
+.sort((a,b)=>b.score-a.score)
+.slice(0,4);
 
 /* 顯示 */
-predict.innerHTML = `
-<div>
-${top.map(x=>`<span class="ball hot">${x.num}</span>`).join("")}
-</div>
-<div class="resultLabel">
-🔥 建議號碼（精選4顆）
-</div>
-`;
-
+predict.innerHTML = result.map(x=>`<span class="ball hot">${x.num}</span>`).join("");
 }
+
+/* TOP */
+window.addEventListener("scroll",()=>{
+topBtn.style.display=window.scrollY>200?"block":"none";
+});
 
 </script>
 
