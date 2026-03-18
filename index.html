@@ -280,11 +280,11 @@ today.innerHTML = arr.map(x=>`<span class="ball hot">${x.num}</span>`).join("");
 }
 
 function showHitRate(){
+if(final.length === 0){
 
-let recent = records.slice(-20);
-let results = [];
+/* 🔥 降級：允許2碼 */
+results = [];
 
-/* 收集符合條件的組合 */
 for(let i=0;i<recent.length;i++){
 for(let j=i+1;j<recent.length;j++){
 
@@ -293,18 +293,30 @@ let b = recent[j];
 
 let same = a.nums.filter(n=>b.nums.includes(n));
 
-if(same.length >= 3){
-
-same = same.sort((a,b)=>a-b);
+if(same.length >= 2){
 
 let gap = getGapDays(a.date, b.date);
 
-/* 🔥 只保留短間隔 */
-if(gap <= 0 || gap > 4) continue;
-
+if(gap > 0 && gap <= 3){
 results.push({nums: same,gap: gap,a: a,b: b});
 }
+
 }
+}
+}
+
+if(results.length > 0){
+html = "<div class='resultLabel'>⚠ 無3碼規律，改用2碼參考</div>";
+
+results.slice(0,3).forEach(r=>{
+html += balls(r.nums,"hit");
+});
+}else{
+html = "<div class='resultLabel'>目前完全無規律（建議觀望）</div>";
+}
+
+document.getElementById("hitRate").innerHTML = html;
+return;
 }
 
 /* 🔥 統計「出現次數」 */
