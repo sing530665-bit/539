@@ -235,72 +235,81 @@ today.innerHTML=arr.map(x=>`<span class="ball hot">${x.num}</span>`).join("");
 }
 
 function showHitRate(){
-let recent = records.slice(-20);
-let results = [];
 
-for(let i=0;i<recent.length;i++){
-for(let j=i+1;j<recent.length;j++){
-
-let a = recent[i];
-let b = recent[j];
-
-let same = a.nums.filter(n=>b.nums.includes(n));
-
-if(same.length >= 2){
-same = same.sort((a,b)=>a-b);
-let gap = getGapDays(a.date, b.date);
-if(gap <= 0 || gap > 10) continue;
-results.push({nums: same,gap: gap,a: a,b: b});
-}
-}
+if(records.length < 10){
+document.getElementById("hitRate").innerHTML = "資料不足";
+return;
 }
 
-results.sort((a,b)=>{
-if(a.gap !== b.gap) return a.gap - b.gap;
-return b.nums.length - a.nums.length;
+let maxCheck = 20; // 往回看20期
+let results = {};
+
+/* 🔥 建立間隔容器 */
+for(let gap=2; gap<=10; gap++){
+results[gap] = {};
+}
+
+/* 🔥 從今天往回抓 */
+for(let i=records.length-1; i>=0; i--){
+
+let base = records[i];
+
+for(let gap=2; gap<=10; gap++){
+
+let targetIndex = i - gap;
+
+if(targetIndex < 0) continue;
+
+let target = records[targetIndex];
+
+/* 比對 */
+let same = base.nums.filter(n=>target.nums.includes(n));
+
+same.forEach(n=>{
+if(!results[gap][n]) results[gap][n] = 0;
+results[gap][n]++;
 });
 
-let seen = new Set();
-let final = [];
-
-results.forEach(r=>{
-let key = r.nums.join("-");
-if(!seen.has(key)){
-seen.add(key);
-final.push(r);
 }
-});
+}
 
-let mustKeep = final.filter(r=>r.nums.length===2);
-final = [...mustKeep, ...final].slice(0,5);
-
+/* 🔥 整理輸出 */
 let html = "";
 
-final.forEach((r,i)=>{
-html += `
-<div class="resultCard" onclick="toggle(${i})">
-${balls(r.nums,"hit")}
-<div class="resultLabel">
-可能間隔 ${r.gap} 期（點擊展開）
-</div>
-<div id="d${i}" style="display:none;">
-<div class="resultLabel">
-${r.a.date}（${getWeek(r.a.date)}）
-</div>
-${balls(r.a.nums,"hit")}
-<div class="resultLabel">
-${r.b.date}（${getWeek(r.b.date)}）
-</div>
-${balls(r.b.nums,"hit")}
-</div>
-</div>`;
+for(let gap=2; gap<=10; gap++){
+
+let nums = results[gap];
+
+/* 只取「出現>=2次」 */
+let strong = Object.entries(nums)
+.filter(([n,count])=>count >= 2)
+.sort((a,b)=>b[1]-a[1]);
+
+if(strong.length === 0) continue;
+
+/* 顯示 */
+html += `<div class="resultCard">`;
+
+strong.forEach(([n,count])=>{
+html += `<span class="ball hit">${n}</span>`;
 });
 
-if(final.length === 0){
-html = "<div class='resultLabel'>目前無明顯間隔規律</div>";
+html += `
+<div class="resultLabel">
+間隔 ${gap} 期（重複出現）
+</div>
+</div>
+`;
+
+}
+
+/* 沒資料 */
+if(html===""){
+html = "<div class='resultLabel'>20期內無穩定規律</div>";
 }
 
 document.getElementById("hitRate").innerHTML = html;
+
 }
 
 function toggle(i){
