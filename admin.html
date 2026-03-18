@@ -19,16 +19,36 @@ background:linear-gradient(180deg,#f5f7fa,#e4ecf3);
 .header{text-align:center;font-size:22px;font-weight:bold;margin-bottom:15px;}
 .card{background:white;border-radius:16px;padding:15px;margin-bottom:15px;box-shadow:0 8px 20px rgba(0,0,0,0.08);}
 .dashboard{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-.box{background:#fff;border-radius:12px;padding:15px;text-align:center;font-size:14px;box-shadow:0 4px 10px rgba(0,0,0,0.05);}
-input{width:100%;padding:10px;margin:5px 0;border-radius:10px;border:1px solid #ccc;font-size:15px;}
+.box{background:#fff;border-radius:12px;padding:15px;text-align:center;font-size:14px;}
+input{width:100%;padding:10px;margin:5px 0;border-radius:10px;border:1px solid #ccc;}
 .numRow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
-button{width:100%;padding:10px;margin-top:6px;border:none;border-radius:12px;background:#ff3b30;color:white;font-size:15px;}
-button.gray{background:#888;} button.blue{background:#2196f3;} button.green{background:#4caf50;}
-.list{max-height:320px;overflow:auto;}
+button{width:100%;padding:10px;margin-top:6px;border:none;border-radius:12px;background:#ff3b30;color:white;}
+button.gray{background:#888;} 
+button.green{background:#4caf50;}
+
+.list{max-height:400px;overflow:auto;}
+
 .item{padding:10px;border-bottom:1px solid #eee;}
 .itemDate{font-size:13px;color:#888;}
-.ball{display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#ffd54f;text-align:center;margin:2px;font-size:13px;font-weight:bold;}
-@media(max-width:600px){.dashboard{grid-template-columns:1fr;}}
+
+.ball{
+display:inline-block;
+width:26px;height:26px;
+line-height:26px;
+border-radius:50%;
+background:#ffd54f;
+text-align:center;
+margin:2px;
+font-size:13px;
+font-weight:bold;
+}
+
+.smallBtn{
+padding:4px 6px;
+font-size:12px;
+margin:2px;
+border-radius:6px;
+}
 </style>
 </head>
 
@@ -41,8 +61,8 @@ button.gray{background:#888;} button.blue{background:#2196f3;} button.green{back
 <div class="card">
 <div class="dashboard">
 <div class="box" id="totalBox">總筆數</div>
-<div class="box" id="mainBox">主資料</div>
-<div class="box" id="extraBox">暫存</div>
+<div class="box" id="mainBox">雲端</div>
+<div class="box" id="extraBox">狀態</div>
 </div>
 </div>
 
@@ -60,7 +80,7 @@ button.gray{background:#888;} button.blue{background:#2196f3;} button.green{back
 </div>
 
 <div class="card">
-<h3>📜 資料管理</h3>
+<h3>📜 最新20期</h3>
 <div class="list" id="list"></div>
 </div>
 
@@ -78,9 +98,6 @@ const firebaseConfig = {
   authDomain: "project-6840445528125426070.firebaseapp.com",
   databaseURL: "https://project-6840445528125426070-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "project-6840445528125426070",
-  storageBucket: "project-6840445528125426070.appspot.com",
-  messagingSenderId: "917388449245",
-  appId: "1:917388449245:web:f63938f3b35d2a4a9d1234"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -99,35 +116,52 @@ function add(){
 let nums=[+n1.value,+n2.value,+n3.value,+n4.value,+n5.value];
 if(nums.some(n=>!n)) return alert("請輸入完整");
 
-if(!d.value.includes("/")) return alert("日期格式錯誤");
-
 db.ref("lottery").once("value", snapshot=>{
 
 let data = snapshot.val() || {};
 let arr = Object.values(data);
 
-/* 防重複 */
 if(arr.some(x=>x.date===d.value)){
 return alert("該日期已存在");
 }
 
 let id = "d" + Date.now();
 
-db.ref("lottery/" + id).set({
-  date: d.value,
-  nums: nums
+db.ref("lottery/"+id).set({
+date:d.value,
+nums:nums
 });
 
 alert("新增成功");
 
-/* 清空輸入 */
 n1.value=n2.value=n3.value=n4.value=n5.value="";
-
-/* 重新整理 */
 render();
 
 });
 
+}
+
+/* 刪除 */
+function del(key){
+if(!confirm("確定刪除？")) return;
+db.ref("lottery/"+key).remove();
+render();
+}
+
+/* 修改 */
+function edit(key,data){
+
+let txt=prompt("輸入5個號碼",data.nums.join(" "));
+if(!txt) return;
+
+let arr=txt.split(" ").map(Number);
+if(arr.length!=5) return alert("錯誤");
+
+db.ref("lottery/"+key).update({
+nums:arr
+});
+
+render();
 }
 
 /* 顯示 */
@@ -136,20 +170,27 @@ function render(){
 db.ref("lottery").once("value", snapshot=>{
 
 let data = snapshot.val() || {};
-let arr = Object.values(data);
 
-/* 正確排序（關鍵） */
+/* 轉陣列 */
+let arr = Object.entries(data).map(([key,val])=>({
+key,
+date:val.date,
+nums:val.nums
+}));
+
+/* 🔥 排序（新→舊） */
 arr.sort((a,b)=>{
+let pa=a.date.split("/").map(Number);
+let pb=b.date.split("/").map(Number);
 
-let pa = a.date.split("/").map(Number);
-let pb = b.date.split("/").map(Number);
+let da=new Date(1911+pa[0],pa[1]-1,pa[2]).getTime();
+let db=new Date(1911+pb[0],pb[1]-1,pb[2]).getTime();
 
-let da = new Date(1911+pa[0], pa[1]-1, pa[2]).getTime();
-let db = new Date(1911+pb[0], pb[1]-1, pb[2]).getTime();
-
-return da - db;
-
+return db - da;
 });
+
+/* 只顯示20筆 */
+arr = arr.slice(0,20);
 
 /* 顯示 */
 list.innerHTML=arr.map(d=>`
@@ -158,12 +199,13 @@ list.innerHTML=arr.map(d=>`
 <div>
 ${d.nums.map(n=>`<span class="ball">${n}</span>`).join("")}
 </div>
+<button class="smallBtn" onclick="edit('${d.key}',${JSON.stringify(d).replace(/"/g,'&quot;')})">✏</button>
+<button class="smallBtn" onclick="del('${d.key}')">❌</button>
 </div>
 `).join("");
 
-/* 統計 */
 totalBox.innerHTML=`📦 ${arr.length}`;
-mainBox.innerHTML=`雲端：${arr.length}`;
+mainBox.innerHTML=`雲端資料`;
 extraBox.innerHTML=`✔ 即時`;
 
 });
