@@ -241,26 +241,29 @@ hitRate.innerHTML="資料不足";
 return;
 }
 
-let results={};
+let latest = records[records.length-1]; // 今天
+let results = {};
 
-/* 建立間隔 */
+/* 間隔 */
 for(let gap=2;gap<=10;gap++){
 results[gap]={};
 }
 
-/* 計算20期 */
-for(let i=records.length-1;i>=0 && i>records.length-21;i--){
-
-let base=records[i];
-
 for(let gap=2;gap<=10;gap++){
 
-let targetIndex=i-gap;
-if(targetIndex<0) continue;
+let hitList=[];
 
-let target=records[targetIndex];
+/* 往回看20期 */
+for(let i=records.length-2;i>=0 && i>records.length-22;i--){
 
-let same=base.nums.filter(n=>target.nums.includes(n));
+let targetIndex = i - (gap-1);
+if(targetIndex < 0) continue;
+
+let a = records[i];
+let b = records[targetIndex];
+
+/* 找交集 */
+let same = a.nums.filter(n=>b.nums.includes(n));
 
 same.forEach(n=>{
 if(!results[gap][n]) results[gap][n]=0;
@@ -270,42 +273,66 @@ results[gap][n]++;
 }
 }
 
-/* 🔥 找最強間隔 */
+/* 顯示 */
+let html="";
 let bestGap=null;
 let bestScore=0;
 
-/* 畫面 */
-let html="";
-
 for(let gap=2;gap<=10;gap++){
 
-let strong=Object.entries(results[gap])
+let strong = Object.entries(results[gap])
 .filter(([n,c])=>c>=2)
 .sort((a,b)=>b[1]-a[1]);
 
 if(!strong.length) continue;
 
-/* 計算總分 */
-let total=strong.reduce((sum,x)=>sum+x[1],0);
+/* 算強度 */
+let total = strong.reduce((s,x)=>s+x[1],0);
 
 if(total > bestScore){
 bestScore = total;
 bestGap = gap;
 }
 
+/* 顯示 */
 html+=`<div class="resultCard">`;
 
-/* 顯示號碼+次數 */
 strong.forEach(([n,count])=>{
 html+=`
 <div style="display:inline-block;text-align:center;margin:4px;">
 <span class="ball hit">${n}</span>
-<div style="font-size:11px;color:#666;">(${count})</div>
+<div style="font-size:11px;">(${count})</div>
 </div>
 `;
 });
 
-html+=`<div class="resultLabel">間隔 ${gap} 期（重複出現）</div></div>`;
+html+=`<div class="resultLabel">間隔 ${gap} 期（穩定出現）</div></div>`;
+}
+
+/* 🔥 推薦 */
+if(bestGap){
+
+let bestNums = Object.entries(results[bestGap])
+.filter(([n,c])=>c>=2)
+.sort((a,b)=>b[1]-a[1])
+.slice(0,5);
+
+html = `
+<div class="resultCard" style="border-left:4px solid #ff3b30;">
+<div class="resultLabel">🔥 推薦間隔：${bestGap}期</div>
+<div>
+${bestNums.map(x=>`<span class="ball hot">${x[0]}</span>`).join("")}
+</div>
+</div>
+` + html;
+}
+
+if(!html){
+html="<div class='resultLabel'>目前無明顯規律</div>";
+}
+
+hitRate.innerHTML=html;
+
 }
 
 /* 🔥 推薦區 */
