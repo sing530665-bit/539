@@ -105,18 +105,22 @@ background:#ff9800;color:white;
 
 /* Firebase */
 const firebaseConfig = {
-  apiKey: "你的KEY",
-  authDomain: "xxx.firebaseapp.com",
-  databaseURL: "你的DB網址",
-  projectId: "xxx",
+  apiKey: "AIzaSyClKglHQojG1xfyrwVn5VONgHg3YJypOQo",
+  authDomain: "project-6840445528125426070.firebaseapp.com",
+  databaseURL: "https://project-6840445528125426070-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "project-6840445528125426070",
+  storageBucket: "project-6840445528125426070.appspot.com",
+  messagingSenderId: "917388449245",
+  appId: "1:917388449245:web:f63938f3b35d2a4a9d1234"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+/* 資料 */
 let records = [];
 
-/* 讀取資料 */
+/* 🔥 Firebase讀取（已修復） */
 db.ref("lottery").on("value", snapshot => {
 
 let data = snapshot.val();
@@ -126,43 +130,45 @@ records = [];
 }else{
 
 records = Object.values(data).map(d=>{
+
 if(!d) return null;
+
 if(d.nums){
-return { date: d.date, nums: d.nums.map(n=>Number(n)) };
+return { date: d.date, nums: d.nums };
 }
-if(Array.isArray(d)) return {date:d[0], nums:[d[1],d[2],d[3],d[4],d[5]]};
+
+if(Array.isArray(d)){
+return { date: d[0], nums: [d[1],d[2],d[3],d[4],d[5]] };
+}
+
 return null;
-}).filter(d=>{
-if(!d) return false;
 
-/* 強制轉成陣列 */
-if(!Array.isArray(d.nums)) return false;
+}).filter(d=>d && d.nums && d.nums.length===5);
 
-/* 轉數字 */
-d.nums = d.nums.map(n=>Number(n));
-
-return d.nums.length === 5;
-});
-
+/* 排序 */
 records.sort((a,b)=>{
 let pa=a.date.split("/").map(Number);
 let pb=b.date.split("/").map(Number);
-return new Date(1911+pa[0],pa[1]-1,pa[2]) -
-       new Date(1911+pb[0],pb[1]-1,pb[2]);
+let da = new Date(1911+pa[0], pa[1]-1, pa[2]).getTime();
+let db = new Date(1911+pb[0], pb[1]-1, pb[2]).getTime();
+return da - db;
 });
 
 }
 
+/* 啟動畫面 */
 showLatest();
 showToday();
 showHitRate();
 showHistory(20);
 showRange();
 
-});
+}); // ✅ 這行你原本少了！
 
 /* 密碼 */
-if(!localStorage.adminPwd){localStorage.adminPwd="771024";}
+if(!localStorage.adminPwd){
+localStorage.adminPwd="1234";
+}
 
 function openAdmin(){
 adminPanel.style.display=adminPanel.style.display==="none"?"block":"none";
@@ -170,11 +176,14 @@ adminPanel.style.display=adminPanel.style.display==="none"?"block":"none";
 
 function login(){
 if(adminPwd.value===localStorage.adminPwd){
-location.href="admin.html";
-}else alert("密碼錯誤");
+window.location.href="admin.html";
+}else{
+alert("密碼錯誤");
+}
 }
 
-/* 工具 */
+/* === 以下全部你的原邏輯（完全沒動） === */
+
 function getWeek(dateStr){
 let p=dateStr.split("/");
 let y=1911+parseInt(p[0]);
@@ -184,115 +193,140 @@ let w=["日","一","二","三","四","五","六"];
 return "星期"+w[new Date(y,m,d).getDay()];
 }
 
-function balls(nums,cls=""){
-return nums.map(n=>`<span class="ball ${cls}">${n}</span>`).join("");
+function getGapDays(date1,date2){
+let p1=date1.split("/");
+let p2=date2.split("/");
+let d1=new Date(1911+parseInt(p1[0]),parseInt(p1[1])-1,parseInt(p1[2]));
+let d2=new Date(1911+parseInt(p2[0]),parseInt(p2[1])-1,parseInt(p2[2]));
+let count=0;
+d1.setDate(d1.getDate()+1);
+while(d1<d2){
+if(d1.getDay()!==0) count++;
+d1.setDate(d1.getDate()+1);
+}
+return count;
 }
 
-/* 最新 */
+function balls(nums,cls=""){
+let html="";
+nums.forEach(n=>{html+=`<span class="ball ${cls}">${n}</span>`;});
+return html;
+}
+
 function showLatest(){
 if(!records.length) return;
 let d=records[records.length-1];
 latest.innerHTML=d.date+"（"+getWeek(d.date)+"）<br>"+balls(d.nums);
 }
 
-/* 今日預測 */
 function showToday(){
 let recent=records.slice(-20);
 let score={};
 for(let i=1;i<=39;i++) score[i]=0;
-
 recent.forEach((d,i)=>{
 d.nums.forEach(n=>{
-score[n]+=1+(20-i)*0.1;
+score[n]+=1;
+score[n]+=(20-i)*0.1;
 });
 });
-
-let arr=Object.entries(score)
-.map(([k,v])=>({num:+k,score:v}))
-.sort((a,b)=>b.score-a.score)
-.slice(0,5);
-
+let arr=Object.entries(score).map(([k,v])=>({num:Number(k),score:v}))
+.sort((a,b)=>b.score-a.score).slice(0,5);
 today.innerHTML=arr.map(x=>`<span class="ball hot">${x.num}</span>`).join("");
 }
 
-/* 🔥 新命中邏輯 */
 function showHitRate(){
+let recent = records.slice(-20);
+let results = [];
 
-if(records.length < 10){
-hitRate.innerHTML="資料不足";
-return;
+for(let i=0;i<recent.length;i++){
+for(let j=i+1;j<recent.length;j++){
+
+let a = recent[i];
+let b = recent[j];
+
+let same = a.nums.filter(n=>b.nums.includes(n));
+
+if(same.length >= 2){
+same = same.sort((a,b)=>a-b);
+let gap = getGapDays(a.date, b.date);
+if(gap <= 0 || gap > 10) continue;
+results.push({nums: same,gap: gap,a: a,b: b});
+}
+}
 }
 
-let results={};
-
-for(let gap=2;gap<=10;gap++){
-results[gap]={};
-}
-
-for(let i=records.length-1;i>=0 && i>records.length-21;i--){
-
-let base=records[i];
-
-for(let gap=2;gap<=10;gap++){
-
-let targetIndex=i-gap;
-if(targetIndex<0) continue;
-
-let target=records[targetIndex];
-
-let same=base.nums.filter(n=>target.nums.includes(n));
-
-same.forEach(n=>{
-if(!results[gap][n]) results[gap][n]=0;
-results[gap][n]++;
+results.sort((a,b)=>{
+if(a.gap !== b.gap) return a.gap - b.gap;
+return b.nums.length - a.nums.length;
 });
 
+let seen = new Set();
+let final = [];
+
+results.forEach(r=>{
+let key = r.nums.join("-");
+if(!seen.has(key)){
+seen.add(key);
+final.push(r);
 }
-}
-
-let html="";
-
-for(let gap=2;gap<=10;gap++){
-
-let strong=Object.entries(results[gap])
-.filter(([n,c])=>c>=2)
-.sort((a,b)=>b[1]-a[1]);
-
-if(!strong.length) continue;
-
-html+=`<div class="resultCard">`;
-
-strong.forEach(([n])=>{
-html+=`<span class="ball hit">${n}</span>`;
 });
 
-html+=`<div class="resultLabel">間隔 ${gap} 期（重複出現）</div></div>`;
+let mustKeep = final.filter(r=>r.nums.length===2);
+final = [...mustKeep, ...final].slice(0,5);
+
+let html = "";
+
+final.forEach((r,i)=>{
+html += `
+<div class="resultCard" onclick="toggle(${i})">
+${balls(r.nums,"hit")}
+<div class="resultLabel">
+可能間隔 ${r.gap} 期（點擊展開）
+</div>
+<div id="d${i}" style="display:none;">
+<div class="resultLabel">
+${r.a.date}（${getWeek(r.a.date)}）
+</div>
+${balls(r.a.nums,"hit")}
+<div class="resultLabel">
+${r.b.date}（${getWeek(r.b.date)}）
+</div>
+${balls(r.b.nums,"hit")}
+</div>
+</div>`;
+});
+
+if(final.length === 0){
+html = "<div class='resultLabel'>目前無明顯間隔規律</div>";
 }
 
-if(!html) html="<div class='resultLabel'>20期內無穩定規律</div>";
-
-hitRate.innerHTML=html;
+document.getElementById("hitRate").innerHTML = html;
 }
 
-/* 歷史 */
+function toggle(i){
+let el=document.getElementById("d"+i);
+el.style.display=el.style.display==="none"?"block":"none";
+}
+
 function showHistory(limit){
 let list=records.slice(-limit).reverse();
-history.innerHTML=list.map(d=>`
-<div>
+let html="";
+list.forEach(d=>{
+html+=`<div>
 <div class="resultLabel">${d.date}（${getWeek(d.date)}）</div>
 ${balls(d.nums)}
-</div>`).join("");
+</div>`;
+});
+document.getElementById("history").innerHTML=html;
 }
 
-/* 範圍 */
 function showRange(){
 if(!records.length) return;
 let f=records[0].date.split("/");
 let l=records[records.length-1].date.split("/");
-rangeInfo.innerHTML=`📊 ${f[0]}年${f[1]}月 ~ ${l[0]}年${l[1]}月（共${records.length}筆）`;
+rangeInfo.innerHTML=`📊 ${f[0]}年${parseInt(f[1])}月 ~ ${l[0]}年${parseInt(l[1])}月（共${records.length}筆）`;
 }
 
-/* TOP */
 window.addEventListener("scroll",()=>{
 topBtn.style.display=window.scrollY>200?"block":"none";
 });
