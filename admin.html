@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>後台管理</title>
+
+<script src="data.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+body{
+font-family:"Microsoft JhengHei";
+margin:0;
+background:linear-gradient(180deg,#f5f7fa,#e4ecf3);
+}
+.container{max-width:1000px;margin:auto;padding:15px;}
+.header{text-align:center;font-size:22px;font-weight:bold;margin-bottom:15px;}
+.card{background:white;border-radius:16px;padding:15px;margin-bottom:15px;box-shadow:0 8px 20px rgba(0,0,0,0.08);}
+.dashboard{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.box{background:#fff;border-radius:12px;padding:15px;text-align:center;font-size:14px;box-shadow:0 4px 10px rgba(0,0,0,0.05);}
+input{width:100%;padding:10px;margin:5px 0;border-radius:10px;border:1px solid #ccc;font-size:15px;}
+.numRow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+button{width:100%;padding:10px;margin-top:6px;border:none;border-radius:12px;background:#ff3b30;color:white;font-size:15px;}
+button.gray{background:#888;} button.blue{background:#2196f3;} button.green{background:#4caf50;}
+.list{max-height:320px;overflow:auto;}
+.item{padding:10px;border-bottom:1px solid #eee;}
+.itemDate{font-size:13px;color:#888;}
+.ball{display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#ffd54f;text-align:center;margin:2px;font-size:13px;font-weight:bold;}
+@media(max-width:600px){.dashboard{grid-template-columns:1fr;}}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">🔧 後台管理系統</div>
+
+<div class="card">
+<div class="dashboard">
+<div class="box" id="totalBox">總筆數</div>
+<div class="box" id="mainBox">主資料</div>
+<div class="box" id="extraBox">暫存</div>
+</div>
+</div>
+
+<div class="card">
+<h3>➕ 新增開獎</h3>
+<input id="d" readonly>
+<div class="numRow">
+<input id="n1" type="number">
+<input id="n2" type="number">
+<input id="n3" type="number">
+<input id="n4" type="number">
+<input id="n5" type="number">
+</div>
+<button class="green" onclick="add()">新增資料</button>
+</div>
+
+<div class="card">
+<h3>📜 資料管理</h3>
+<div class="list" id="list"></div>
+</div>
+
+<div class="card">
+<button class="gray" onclick="back()">⬅ 返回主頁</button>
+</div>
+
+</div>
+
+<script>
+
+/* Firebase */
+const firebaseConfig = {
+  apiKey: "AIzaSyClKglHQojG1xfyrwVn5VONgHg3YJypOQo",
+  authDomain: "project-6840445528125426070.firebaseapp.com",
+  databaseURL: "https://project-6840445528125426070-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "project-6840445528125426070",
+  storageBucket: "project-6840445528125426070.appspot.com",
+  messagingSenderId: "917388449245",
+  appId: "1:917388449245:web:f63938f3b35d2a4a9d1234"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* 日期 */
+function getToday(){
+let n=new Date();
+return `${n.getFullYear()-1911}/${String(n.getMonth()+1).padStart(2,"0")}/${String(n.getDate()).padStart(2,"0")}`;
+}
+d.value=getToday();
+
+/* 新增 */
+function add(){
+
+let nums=[+n1.value,+n2.value,+n3.value,+n4.value,+n5.value];
+if(nums.some(n=>!n)) return alert("請輸入完整");
+
+db.ref("lottery").once("value", snapshot=>{
+
+let data = snapshot.val() || {};
+let arr = Object.values(data);
+
+if(arr.some(x=>x.date===d.value)){
+return alert("今天已存在");
+}
+
+let id = "d" + Date.now();
+
+db.ref("lottery/" + id).set({
+  date: d.value,
+  nums: nums
+});
+
+alert("新增成功");
+
+n1.value=n2.value=n3.value=n4.value=n5.value="";
+
+render();
+
+});
+
+}
+
+/* 顯示 */
+function render(){
+
+db.ref("lottery").once("value", snapshot=>{
+
+let data = snapshot.val() || {};
+let arr = Object.values(data);
+
+/* 排序 */
+arr.sort((a,b)=>{
+let pa=a.date.split("/");
+let pb=b.date.split("/");
+return new Date(1911+pa[0],pa[1]-1,pa[2]) -
+       new Date(1911+pb[0],pb[1]-1,pb[2]);
+});
+
+list.innerHTML=arr.map(d=>`
+<div class="item">
+<div class="itemDate">${d.date}</div>
+<div>
+${d.nums.map(n=>`<span class="ball">${n}</span>`).join("")}
+</div>
+</div>
+`).join("");
+
+totalBox.innerHTML=`📦 ${arr.length}`;
+mainBox.innerHTML=`雲端：${arr.length}`;
+extraBox.innerHTML=`✔ 即時`;
+
+});
+
+}
+
+/* 返回 */
+function back(){
+location.href="index.html";
+}
+
+/* 啟動 */
+render();
+
+</script>
+
+</body>
+</html>
