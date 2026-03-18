@@ -297,7 +297,12 @@ html+=`<div class="resultCard">`;
 
 /* 顯示號碼+次數 */
 strong.forEach(([n,count])=>{
-html+=`<span class="ball hit">${n}(${count})</span>`;
+html+=`
+<div style="display:inline-block;text-align:center;margin:4px;">
+<span class="ball hit">${n}</span>
+<div style="font-size:11px;color:#666;">(${count})</div>
+</div>
+`;
 });
 
 html+=`<div class="resultLabel">間隔 ${gap} 期（重複出現）</div></div>`;
